@@ -1,15 +1,21 @@
 import { useState } from "react";
 import "../styles/Home.css";
 import Sidebar from "../components/Sidebar";
+import UploadModal from "../components/UploadModal";
 import SearchIcon from "../assets/search.svg";
 import HomeIcon from "../assets/home-icon.svg";
 
 function Home() {
   const [documents, setDocuments] = useState([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const handleAddDocument = () => {
-    // TODO: Open file picker or document upload modal
-    console.log("Add document clicked");
+    setShowUploadModal(true);
+  };
+
+  const handleUploadSuccess = (data) => {
+    setShowUploadModal(false);
+    setDocuments([...documents, data]);
   };
 
   return (
@@ -47,6 +53,13 @@ function Home() {
             </div>
           )}
         </div>
+
+        {showUploadModal && (
+          <UploadModal
+            onClose={() => setShowUploadModal(false)}
+            onSuccess={handleUploadSuccess}
+          />
+        )}
       </main>
     </div>
   );
