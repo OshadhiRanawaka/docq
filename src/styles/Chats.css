@@ -1,0 +1,60 @@
+/* ── Chat Container ──────────────────────────────– */
+.chats-container {
+  display: flex;
+  height: 100vh;
+  background: #f5f5f5;
+}
+
+/* ── Main Content Area ───────────────────────────– */
+.chats-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────– */
+.chats-header {
+  background: #ffffff;
+  padding: 20px 32px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chats-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #f3f4f6;
+  border-radius: 8px;
+  min-width: 300px;
+}
+
+.search-icon {
+  width: 18px;
+  height: 18px;
+  opacity: 0.5;
+}
+
+.search-bar input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: #111827;
+  outline: none;
+}
+
+.search-bar input::placeholder {
+  color: #9ca3af;
+}

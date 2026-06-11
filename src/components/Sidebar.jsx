@@ -1,5 +1,5 @@
 import { useState } from "react";
-//import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "../styles/Sidebar.css";
 import Logo from "../assets/logo-icon.svg.svg";
 import DocumentsIcon from "../assets/documents-icon.svg";
@@ -8,13 +8,18 @@ import HelpIcon from "../assets/help-icon.svg";
 import credit from "../assets/credits-icon.svg";
 
 function Sidebar() {
-  //const navigate = useNavigate();
+  const navigate = useNavigate();
   const [activeMenu, setActiveMenu] = useState("documents");
 
   const menuItems = [
-    { id: "documents", label: "Documents", icon: DocumentsIcon },
-    { id: "chat", label: "Chats", icon: ChatIcon },
+    { id: "documents", label: "Documents", icon: DocumentsIcon, path: "/documents" },
+    { id: "chat", label: "Chats", icon: ChatIcon, path: "/chats" },
   ];
+
+  const handleMenuClick = (item) => {
+    setActiveMenu(item.id);
+    navigate(item.path);
+  };
 
   return (
     <aside className="sidebar">
@@ -30,7 +35,7 @@ function Sidebar() {
           <button
             key={item.id}
             className={`sidebar-menu-item ${activeMenu === item.id ? "active" : ""}`}
-            onClick={() => setActiveMenu(item.id)}
+            onClick={() => handleMenuClick(item)}
           >
             <img src={item.icon} alt={item.label} className="menu-icon" />
             <span>{item.label}</span>
