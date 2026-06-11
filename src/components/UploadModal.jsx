@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { X, Upload, FileText, CheckCircle, AlertCircle } from 'lucide-react';
 import { uploadDocument } from '../services/api';
-import styles from './UploadModal.module.css';
+import styles from '../styles/UploadModal.module.css';
 
 export default function UploadModal({ onClose, onSuccess }) {
   const [file,     setFile]     = useState(null);
