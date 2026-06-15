@@ -1,19 +1,31 @@
 import "../styles/Chats.css";
 import Sidebar from "../components/Sidebar";
 import SearchIcon from "../assets/search.svg";
+import { useState } from "react";
 
 function Chats() {
+  const [searchQuery, setSearchQuery] = useState("");
   return (
     <div className="chats-container">
-      <Sidebar />
+      <Sidebar activePage="chats" />
       <main className="chats-main">
-        <header className="chats-header">
-          <h1>Chats</h1>
-          <div className="search-bar">
-            <img src={SearchIcon} alt="Search" className="search-icon" />
-            <input type="text" placeholder="Search chats..." />
+        <div className="chats-topbar">
+          <div className="chats-topbar-left">
+            <h1 className="chats-title">Chats</h1>
           </div>
-        </header>
+
+          <div className="chats-topbar-right">
+            <div className="search-bar">
+              <img src={SearchIcon} alt="Search" className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search documents..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );

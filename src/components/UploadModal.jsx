@@ -1,126 +1,275 @@
-import { useCallback, useState } from 'react';
-import { useDropzone } from 'react-dropzone';
-import { X, Upload, FileText, CheckCircle, AlertCircle } from 'lucide-react';
-import { uploadDocument } from '../services/api';
-import styles from '../styles/UploadModal.module.css';
+import { useRef, useState } from "react";
+import "../styles/UploadModal.css";
 
-export default function UploadModal({ onClose, onSuccess }) {
-  const [file,     setFile]     = useState(null);
-  const [progress, setProgress] = useState(0);  // 0-100
-  const [status,   setStatus]   = useState('idle'); // idle | uploading | done | error
-  const [error,    setError]    = useState('');
+function UploadModal({ onClose, onSuccess }) {
+  const [file, setFile] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState("idle"); // idle | uploading | done | error
+  const [errorMsg, setErrorMsg] = useState("");
+  const fileInputRef = useRef(null);
 
-  const onDrop = useCallback((accepted) => {
-    if (accepted[0]) { setFile(accepted[0]); setStatus('idle'); setError(''); }
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'application/pdf': ['.pdf'] },
-    maxFiles: 1,
-    maxSize: 100 * 1024 * 1024, // 100 MB
-  });
-
-  const handleUpload = async () => {
-    if (!file) return;
-    setStatus('uploading');
-    setProgress(0);
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const { data } = await uploadDocument(formData, {
-        onUploadProgress: (e) => {
-          setProgress(Math.round((e.loaded / e.total) * 100));
-        },
-      });
-      setStatus('done');
-      setTimeout(() => onSuccess(data), 800);
-    } catch (err) {
-      setStatus('error');
-      setError(err.response?.data?.detail || 'Upload failed. Please try again.');
+  /* ── File selection ── */
+  const acceptFile = (f) => {
+    if (!f) return;
+    if (f.type !== "application/pdf") {
+      setErrorMsg("Only PDF files are supported.");
+      return;
     }
+    if (f.size > 100 * 1024 * 1024) {
+      setErrorMsg("File is too large. Max size is 100 MB.");
+      return;
+    }
+    setFile(f);
+    setStatus("idle");
+    setErrorMsg("");
+    setProgress(0);
+  };
+
+  const handleFileInput = (e) => {
+    acceptFile(e.target.files[0]);
+  };
+
+  /* ── Drag & drop ── */
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+  const handleDragLeave = () => setIsDragging(false);
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    acceptFile(e.dataTransfer.files[0]);
+  };
+
+  /* ── Simulated upload (replace with real API call later) ── */
+  const handleUpload = () => {
+    if (!file) return;
+    setStatus("uploading");
+    setProgress(0);
+
+    // Simulate progress — swap this block for a real fetch/axios call
+    let p = 0;
+    const interval = setInterval(() => {
+      p += Math.floor(Math.random() * 18) + 8;
+      if (p >= 100) {
+        p = 100;
+        clearInterval(interval);
+        setProgress(100);
+        setStatus("done");
+
+        // Pass back a document object to the parent
+        setTimeout(() => {
+          onSuccess({
+            id: Date.now(),
+            name: file.name,
+            size: file.size,
+            pages: "—",
+            status: "processing",
+            uploadedAt: new Date().toISOString(),
+          });
+        }, 600);
+      } else {
+        setProgress(p);
+      }
+    }, 180);
+  };
+
+  const removeFile = () => {
+    setFile(null);
+    setStatus("idle");
+    setProgress(0);
+    setErrorMsg("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const formatSize = (bytes) => {
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / 1024 / 1024).toFixed(2) + " MB";
   };
 
   return (
-    <div className={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={styles.modal}>
-        {/* Header */}
-        <div className={styles.header}>
-          <div className={styles.tabs}>
-            <button className={styles.tabActive}>Upload Files</button>
+    <div
+      className="modal-overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="modal-box">
+        {/* ── Header ── */}
+        <div className="modal-header">
+          <div className="modal-tabs">
+            <button className="modal-tab modal-tab--active">Upload Files</button>
           </div>
-          <button className={styles.closeBtn} onClick={onClose}>
-            <X size={18} />
+          <button className="modal-close-btn" onClick={onClose} title="Close">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
-        <p className={styles.limit}>Max file size: 100 MB at a time</p>
+        <p className="modal-size-limit">Max file size: 100 MB at a time</p>
 
-        {/* Drop zone */}
+        {/* ── Drop zone ── */}
         <div
-          {...getRootProps()}
-          className={`${styles.dropzone} ${isDragActive ? styles.dragActive : ''}`}
+          className={`modal-dropzone${isDragging ? " modal-dropzone--active" : ""}`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
         >
-          <input {...getInputProps()} />
-          <Upload size={24} className={styles.uploadIcon} />
-          <p className={styles.dropText}>Drop files here</p>
-          <p className={styles.orText}>— or —</p>
-          <button type="button" className={styles.browseBtn}>Browse on your device</button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            className="modal-file-input"
+            onChange={handleFileInput}
+          />
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#9ca3af"
+            strokeWidth="1.5"
+          >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          <p className="modal-drop-text">Drop files here</p>
+          <p className="modal-or-text">— or —</p>
+          <button
+            type="button"
+            className="modal-browse-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              fileInputRef.current?.click();
+            }}
+          >
+            Browse on your device
+          </button>
         </div>
 
-        {/* Selected file */}
+        {/* ── Selected file preview ── */}
         {file && (
-          <div className={styles.filePreview}>
-            <div className={styles.fileMeta}>
-              <FileText size={16} />
-              <span className={styles.fileName}>{file.name}</span>
-              <span className={styles.fileSize}>{(file.size / 1024 / 1024).toFixed(2)} MB</span>
+          <div className="modal-file-preview">
+            <div className="modal-file-info">
+              {/* PDF icon */}
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#14b8a6"
+                strokeWidth="2"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              <span className="modal-file-name">{file.name}</span>
+              <span className="modal-file-size">{formatSize(file.size)}</span>
+
+              {/* Remove file button (only before uploading) */}
+              {status === "idle" && (
+                <button
+                  className="modal-remove-btn"
+                  onClick={removeFile}
+                  title="Remove"
+                >
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
+
+              {/* Uploading spinner */}
+              {status === "uploading" && (
+                <div className="modal-spinner" />
+              )}
+
+              {/* Done checkmark */}
+              {status === "done" && (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#14b8a6"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
             </div>
 
-            {status === 'uploading' && (
-              <div className={styles.progressWrap}>
-                <div className={styles.progressBar}>
-                  <div className={styles.progressFill} style={{ width: `${progress}%` }} />
+            {/* Progress bar */}
+            {status === "uploading" && (
+              <div className="modal-progress-wrap">
+                <div className="modal-progress-bar">
+                  <div
+                    className="modal-progress-fill"
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
-                <span className={styles.progressLabel}>Uploading {progress}%</span>
+                <span className="modal-progress-label">
+                  Uploading {progress}%
+                </span>
               </div>
             )}
 
-            {status === 'done' && (
-              <div className={styles.successRow}>
-                <CheckCircle size={16} color="var(--accent)" />
-                <span>Upload complete!</span>
-              </div>
-            )}
-
-            {status === 'error' && (
-              <div className={styles.errorRow}>
-                <AlertCircle size={16} color="var(--danger)" />
-                <span>{error}</span>
-              </div>
+            {status === "done" && (
+              <p className="modal-success-text">Upload complete!</p>
             )}
           </div>
         )}
 
-        {/* Supported formats */}
-        <details className={styles.formats}>
+        {/* ── Error message ── */}
+        {errorMsg && <p className="modal-error">{errorMsg}</p>}
+
+        {/* ── Supported formats ── */}
+        <details className="modal-formats">
           <summary>Supported formats</summary>
           <p>PDF (.pdf) — up to 100 MB per file</p>
         </details>
 
-        {/* Footer actions */}
-        <div className={styles.footer}>
-          <button className={styles.cancelBtn} onClick={onClose}>Cancel</button>
+        {/* ── Footer ── */}
+        <div className="modal-footer">
+          <button className="modal-cancel-btn" onClick={onClose}>
+            Cancel
+          </button>
           <button
-            className={styles.uploadBtn}
+            className="modal-upload-btn"
             onClick={handleUpload}
-            disabled={!file || status === 'uploading' || status === 'done'}
+            disabled={!file || status === "uploading" || status === "done"}
           >
-            {status === 'uploading' ? 'Uploading…' : 'Upload'}
+            {status === "uploading"
+              ? "Uploading…"
+              : status === "done"
+              ? "Uploaded ✓"
+              : "Upload"}
           </button>
         </div>
       </div>
     </div>
   );
 }
+
+export default UploadModal;
