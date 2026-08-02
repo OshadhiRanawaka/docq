@@ -3,6 +3,7 @@ import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
 import Documents from './pages/Documents'
 import Chats from './pages/Chats'
+import ChatConversation from './pages/ChatConversation'
 
 export default function App() {
     return (
@@ -12,6 +13,7 @@ export default function App() {
                 <Route path="/signup" element={<SignUp />} />
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/chats" element={<Chats />} />
+                <Route path="/chat/:chatId" element={<ChatConversation />} />
             </Routes>
         </Router>
     )

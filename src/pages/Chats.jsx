@@ -142,7 +142,7 @@ function Chats() {
                 filteredChats.map((chat) => (
                   <div
                     key={chat.id}
-                    className={`chat-row${selectedIds.includes(chat.id) ? "chat-row--selected" : ""}`}
+                   className={`chat-row${selectedIds.includes(chat.id) ? " chat-row--selected" : ""}`}
                   >
                     {/* Checkbox */}
                     <input
