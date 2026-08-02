@@ -4,6 +4,7 @@ import SignUp from './pages/SignUp'
 import Documents from './pages/Documents'
 import Chats from './pages/Chats'
 import ChatConversation from './pages/ChatConversation'
+import Account from './pages/Account'
 
 export default function App() {
     return (
@@ -14,6 +15,7 @@ export default function App() {
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/chats" element={<Chats />} />
                 <Route path="/chat/:chatId" element={<ChatConversation />} />
+                <Route path="/account" element={<Account />} />
             </Routes>
         </Router>
     )

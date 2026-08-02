@@ -10,8 +10,13 @@ function Sidebar({ activePage }) {
   const navigate = useNavigate();
 
   const menuItems = [
-    { id: "documents", label: "Documents", icon: DocumentsIcon, path: "/documents" },
-    { id: "chats",      label: "Chats",     icon: ChatIcon,      path: "/chats"     },
+    {
+      id: "documents",
+      label: "Documents",
+      icon: DocumentsIcon,
+      path: "/documents",
+    },
+    { id: "chats", label: "Chats", icon: ChatIcon, path: "/chats" },
   ];
 
   return (
@@ -41,7 +46,12 @@ function Sidebar({ activePage }) {
           <img src={HelpIcon} alt="Help" className="menu-icon" />
           <span>Help</span>
         </button>
-        <div className="user-profile">
+        {/* ── Clicking the profile section opens Account settings ── */}
+        <button
+          className="user-profile"
+          onClick={() => navigate("/account")}
+          title="Account settings"
+        >
           <div className="user-avatar">O</div>
           <div className="user-info">
             <p className="user-name">xxTxxSKULLxx</p>
@@ -50,7 +60,7 @@ function Sidebar({ activePage }) {
               <span>20 credits</span>
             </div>
           </div>
-        </div>
+        </button>
       </div>
     </aside>
   );
