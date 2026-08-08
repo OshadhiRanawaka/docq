@@ -42,7 +42,11 @@ function Sidebar({ activePage }) {
       </nav>
 
       <div className="sidebar-footer">
-        <button className="sidebar-menu-item help-btn">
+         {/* Help button — navigates to /help */}
+        <button
+          className={`sidebar-menu-item help-btn ${activePage === "help" ? "active" : ""}`}
+          onClick={() => navigate("/help")}
+        >
           <img src={HelpIcon} alt="Help" className="menu-icon" />
           <span>Help</span>
         </button>
