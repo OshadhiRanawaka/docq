@@ -211,3 +211,119 @@
 .signin-footer a:hover {
   color: #14b8a6;
 }
+
+
+/* Form field wrapper */
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+/* Error border state */
+.input-error {
+  border-color: #ef4444 !important;
+}
+
+/* Password match indicator */
+.password-match {
+  font-size: 12px;
+  font-weight: 500;
+  margin: -6px 0 10px;
+}
+.match-ok   { color: #14b8a6; }
+.match-fail { color: #ef4444; }
+
+/* Error box */
+.error-box {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: #fff5f5;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: #ef4444;
+  margin-bottom: 12px;
+}
+
+/* Submit button */
+.continue-btn {
+  width: 100%;
+  padding: 10px;
+  background: #14b8a6;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 2px;
+}
+.continue-btn:hover:not(:disabled) { background: #0d9488; }
+.continue-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Loading state */
+.btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* Spinner */
+.signin-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: signinSpin 0.65s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes signinSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Switch link */
+.switch-auth {
+  text-align: center;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 14px;
+  margin-bottom: 0;
+}
+.switch-auth-link {
+  background: none;
+  border: none;
+  color: #14b8a6;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.switch-auth-link:hover { color: #0d9488; }
+
+/* Success screen */
+.success-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.success-email {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  text-align: center;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  border-radius: 7px;
+  padding: 8px 14px;
+  margin: 8px 0 14px;
+  word-break: break-all;
+}
+ 

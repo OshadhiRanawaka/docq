@@ -5,9 +5,15 @@ import DocumentsIcon from "../assets/documents-icon.svg";
 import ChatIcon from "../assets/chat-icon.svg";
 import HelpIcon from "../assets/help-icon.svg";
 import credit from "../assets/credits-icon.svg";
+import { useAuth } from "../context/AuthContext";
 
 function Sidebar({ activePage }) {
+  const { user, profile } = useAuth()
   const navigate = useNavigate();
+
+   const displayName    = profile?.name || user?.email?.split('@')[0] || 'User'
+  const creditsLeft    = profile?.credits_remaining ?? 0
+  const avatarInitial  = displayName[0].toUpperCase()
 
   const menuItems = [
     {
@@ -56,12 +62,12 @@ function Sidebar({ activePage }) {
           onClick={() => navigate("/account")}
           title="Account settings"
         >
-          <div className="user-avatar">O</div>
+          <div className="user-avatar">{avatarInitial}</div>
           <div className="user-info">
-            <p className="user-name">xxTxxSKULLxx</p>
+            <p className="user-name">{displayName}</p>
             <div className="user-credits">
               <img className="credit-icon" src={credit} alt="Credit" />
-              <span>20 credits</span>
+              <span>{creditsLeft}</span>
             </div>
           </div>
         </button>
