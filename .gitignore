@@ -1,0 +1,6 @@
+docq-backend/.env
+docq-backend/.env.*
+!docq-backend/.env.example
+docq-backend/venv/
+**/__pycache__/
+*.pyc

@@ -512,3 +512,52 @@
 } */
 
 
+/* Loading state */
+.docs-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 14px;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.docs-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #14b8a6;
+  border-radius: 50%;
+  animation: docsSpin 0.7s linear infinite;
+}
+@keyframes docsSpin { to { transform: rotate(360deg); } }
+
+/* Error state */
+.docs-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 16px;
+  color: #ef4444;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Status badge on document rows */
+.doc-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.doc-status--uploaded   { background: #f3f4f6; color: #6b7280; }
+.doc-status--processing { background: #fef3c7; color: #d97706; }
+.doc-status--ready      { background: #d1fae5; color: #065f46; }
+.doc-status--failed     { background: #fee2e2; color: #b91c1c; }

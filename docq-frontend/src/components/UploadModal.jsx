@@ -1,5 +1,9 @@
 import { useRef, useState } from "react";
+ "react";
+import { supabase } from "../services/supabaseClient";
 import "../styles/UploadModal.css";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 function UploadModal({ onClose, onSuccess }) {
   const [file, setFile] = useState(null);
@@ -42,37 +46,61 @@ function UploadModal({ onClose, onSuccess }) {
     acceptFile(e.dataTransfer.files[0]);
   };
 
-  /* ── Simulated upload (replace with real API call later) ── */
-  const handleUpload = () => {
+  // ── Real upload to FastAPI ───────────────────────
+  const handleUpload = async () => {
     if (!file) return;
     setStatus("uploading");
-    setProgress(0);
+    setProgress(10);
+    setErrorMsg("");
 
-    // Simulate progress — swap this block for a real fetch/axios call
-    let p = 0;
-    const interval = setInterval(() => {
-      p += Math.floor(Math.random() * 18) + 8;
-      if (p >= 100) {
-        p = 100;
-        clearInterval(interval);
-        setProgress(100);
-        setStatus("done");
+    try {
+      // Get Supabase JWT token
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
-        // Pass back a document object to the parent
-        setTimeout(() => {
-          onSuccess({
-            id: Date.now(),
-            name: file.name,
-            size: file.size,
-            pages: "—",
-            status: "processing",
-            uploadedAt: new Date().toISOString(),
-          });
-        }, 600);
-      } else {
-        setProgress(p);
+      if (!token) {
+        setErrorMsg("You must be logged in to upload.");
+        setStatus("error");
+        return;
       }
-    }, 180);
+
+      setProgress(30);
+
+      // Build form data
+      const formData = new FormData();
+      formData.append("file", file);
+
+      setProgress(50);
+
+      // Call FastAPI upload endpoint
+      const response = await fetch(`${API_URL}/documents/upload`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          // Do NOT set Content-Type here — browser sets it with boundary for FormData
+        },
+        body: formData,
+      });
+
+      setProgress(90);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || "Upload failed. Please try again.");
+      }
+
+      const document = await response.json();
+      setProgress(100);
+      setStatus("done");
+
+      // Pass the real document object back to Documents page
+      setTimeout(() => onSuccess(document), 600);
+
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(err.message || "Upload failed. Please try again.");
+      setProgress(0);
+    }
   };
 
   const removeFile = () => {
