@@ -65,7 +65,7 @@ async def get_messages(
             supabase.table("messages")
             .select("*")
             .eq("chat_id", chat_id)
-            .order("created_at", asc=True)
+            .order("created_at", desc=False)
             .execute()
         )
 
@@ -168,7 +168,7 @@ async def send_message(
         supabase.table("messages")
         .select("role, content")
         .eq("chat_id", chat_id)
-        .order("created_at", asc=True)
+        .order("created_at", desc=False)
         .execute()
     )
     history_raw = getattr(history_response, "data", None) or []

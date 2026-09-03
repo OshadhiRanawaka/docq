@@ -1,28 +1,91 @@
 import "../styles/Chats.css";
 import Sidebar from "../components/Sidebar";
 import SearchIcon from "../assets/search.svg";
-import NewChatIcon from "../assets/newChat- icon.svg";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../services/supabaseClient";
 
-const MOCK_CHATS = [
-  {
-    id: 1,
-    title: "Untitles chat",
-    documentName: "024_S2_IntroFinal_FinalExam.pdf",
-    updatedAt: "2 min ago",
-  },
-];
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 function Chats() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
-  const [chats, setChats] = useState(MOCK_CHATS);
+  const [chats, setChats] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
+  // ── Load chats on mount ──────────────────────────
+
+  const fetchChats = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const response = await fetch(`${API_URL}/chats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error("Failed to load chats");
+
+      const data = await response.json();
+      setChats(data);
+    } catch {
+      setError("Could not load chats. Is the backend running?");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadChats = async () => {
+      if (cancelled) return;
+      await fetchChats();
+    };
+
+    void loadChats();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchChats]);
+
+  // ── Delete chat ──────────────────────────────────
+  const handleDelete = async (chat) => {
+    if (!window.confirm("Delete this chat? This cannot be undone.")) return;
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const response = await fetch(`${API_URL}/chats/${chat.chat_id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) throw new Error("Delete failed");
+
+      setChats((prev) => prev.filter((c) => c.chat_id !== chat.chat_id));
+      setSelectedIds((prev) => prev.filter((id) => id !== chat.chat_id));
+      setOpenMenuId(null);
+    } catch {
+      alert("Failed to delete chat. Please try again.");
+    }
+  };
+
+  // ── Select helpers ───────────────────────────────
   const filteredChats = chats.filter((c) =>
-    c.title.toLowerCase().includes(searchQuery.toLowerCase()),
+    (c.title || "Untitled chat")
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase()),
   );
 
   const allSelected =
@@ -35,23 +98,15 @@ function Chats() {
   };
 
   const toggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(filteredChats.map((c) => c.id));
-    }
-  };
-
-  const handleDelete = (id) => {
-    setChats((prev) => prev.filter((c) => c.id !== id));
-    setSelectedIds((prev) => prev.filter((s) => s !== id));
-    setOpenMenuId(null);
+    if (allSelected) setSelectedIds([]);
+    else setSelectedIds(filteredChats.map((c) => c.chat_id));
   };
 
   return (
     <div className="chats-container">
       <Sidebar activePage="chats" />
       <main className="chats-main">
+        {/* ── Top bar ── */}
         <div className="chats-topbar">
           <div className="chats-topbar-left">
             <h1 className="chats-title">Chats</h1>
@@ -62,30 +117,49 @@ function Chats() {
               </p>
             )}
           </div>
-
           <div className="chats-topbar-right">
-            <div className="search-bar">
-              <img src={SearchIcon} alt="Search" className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search documents..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
             <button
               className="btn-new-chat"
               onClick={() => navigate("/documents")}
             >
-              <img src={NewChatIcon} alt="New Chat" className="search-icon" />
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              >
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
               New Chat
             </button>
           </div>
         </div>
 
-        {/* // Content */}
+        {/* ── Content ── */}
         <div className="chats-content">
-          {chats.length === 0 ? (
+          {/* Loading */}
+          {loading && (
+            <div className="chats-loading">
+              <div className="chats-spinner" />
+              <p>Loading chats…</p>
+            </div>
+          )}
+
+          {/* Error */}
+          {!loading && error && (
+            <div className="chats-error">
+              <p>{error}</p>
+              <button className="btn-new-chat" onClick={fetchChats}>
+                Try again
+              </button>
+            </div>
+          )}
+
+          {/* Empty */}
+          {!loading && !error && chats.length === 0 && (
             <div className="chats-empty">
               <svg
                 width="48"
@@ -102,9 +176,12 @@ function Chats() {
                 Upload a document and click "New Chat" to get started.
               </p>
             </div>
-          ) : (
+          )}
+
+          {/* Chat list */}
+          {!loading && !error && chats.length > 0 && (
             <div className="chats-list-card">
-              {/* ── Controls row: select all + updated label + search ── */}
+              {/* Controls */}
               <div className="chats-controls">
                 <label className="select-all-label">
                   <input
@@ -112,7 +189,7 @@ function Chats() {
                     checked={allSelected}
                     onChange={toggleSelectAll}
                   />
-                  <span>Select All</span>
+                  <span>Select all</span>
                 </label>
                 <div className="chats-controls-right">
                   <span className="filter-updated">
@@ -129,30 +206,40 @@ function Chats() {
                     </svg>
                     Updated
                   </span>
+                  <div className="search-bar">
+                    <img
+                      src={SearchIcon}
+                      alt="Search"
+                      className="search-icon"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Search chats..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* ── Chat rows ── */}
-
-              {filteredChats.length === 0 ? (
+              {/* No search results */}
+              {filteredChats.length === 0 && searchQuery ? (
                 <p className="chats-no-results">
                   No chats match "{searchQuery}"
                 </p>
               ) : (
                 filteredChats.map((chat) => (
                   <div
-                    key={chat.id}
-                   className={`chat-row${selectedIds.includes(chat.id) ? " chat-row--selected" : ""}`}
+                    key={chat.chat_id}
+                    className={`chat-row${selectedIds.includes(chat.chat_id) ? " chat-row--selected" : ""}`}
                   >
-                    {/* Checkbox */}
                     <input
                       type="checkbox"
                       className="chat-check"
-                      checked={selectedIds.includes(chat.id)}
-                      onChange={() => toggleSelect(chat.id)}
+                      checked={selectedIds.includes(chat.chat_id)}
+                      onChange={() => toggleSelect(chat.chat_id)}
                     />
 
-                    {/* Chat bubble icon */}
                     <svg
                       className="chat-row-icon"
                       width="16"
@@ -165,13 +252,13 @@ function Chats() {
                       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                     </svg>
 
-                    {/* Title */}
-                    <span className="chat-row-title">{chat.title}</span>
+                    <span className="chat-row-title">
+                      {chat.title || "Untitled chat"}
+                    </span>
 
-                    {/* Open Chat button */}
                     <button
                       className="btn-open-chat"
-                      onClick={() => navigate(`/chat/${chat.id}`)}
+                      onClick={() => navigate(`/chat/${chat.chat_id}`)}
                     >
                       <svg
                         width="13"
@@ -188,7 +275,6 @@ function Chats() {
                       Open Chat
                     </button>
 
-                    {/* Document badge */}
                     <div className="chat-doc-badge">
                       <svg
                         width="12"
@@ -201,15 +287,16 @@ function Chats() {
                         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                         <polyline points="14 2 14 8 20 8" />
                       </svg>
-                      <span>{chat.documentName}</span>
+                      <span>{chat.document_filename || "Unknown"}</span>
                     </div>
 
-                    {/* Three-dot menu */}
                     <div className="chat-menu-wrap">
                       <button
                         className="chat-icon-btn"
                         onClick={() =>
-                          setOpenMenuId(openMenuId === chat.id ? null : chat.id)
+                          setOpenMenuId(
+                            openMenuId === chat.chat_id ? null : chat.chat_id,
+                          )
                         }
                       >
                         <svg
@@ -223,12 +310,13 @@ function Chats() {
                           <circle cx="12" cy="19" r="1.5" />
                         </svg>
                       </button>
-                      {openMenuId === chat.id && (
+                      {openMenuId === chat.chat_id && (
                         <div className="chat-dropdown">
-                          <button className="chat-dropdown-item chat-dropdown-item--danger"
-                            onClick={() => handleDelete(chat.id)}
+                          <button
+                            className="chat-dropdown-item chat-dropdown-item--danger"
+                            onClick={() => handleDelete(chat)}
                           >
-                            Delete Chat
+                            Delete
                           </button>
                         </div>
                       )}

@@ -390,3 +390,122 @@
   justify-content: flex-end;
   gap: 10px;
 }
+
+/* Loading state */
+.account-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 14px;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.account-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #14b8a6;
+  border-radius: 50%;
+  animation: accountSpin 0.7s linear infinite;
+}
+@keyframes accountSpin { to { transform: rotate(360deg); } }
+
+/* Error state */
+.account-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  gap: 16px;
+  color: #ef4444;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Save message error variant */
+.save-msg--error { color: #ef4444; }
+
+/* Credits section */
+.credits-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 18px 20px;
+}
+
+.credits-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #f0fdfa;
+  border: 1px solid #ccfbf1;
+  border-radius: 10px;
+  padding: 12px 20px;
+  min-width: 90px;
+}
+
+.credits-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: #14b8a6;
+  margin: 0;
+}
+
+.credits-label {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 2px 0 0;
+  white-space: nowrap;
+}
+
+.credits-hint {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Sign out section */
+.signout-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px;
+}
+
+.signout-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 3px;
+}
+
+.signout-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.btn-signout {
+  background: none;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 7px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-signout:hover {
+  border-color: #9ca3af;
+  color: #111827;
+}
+ 

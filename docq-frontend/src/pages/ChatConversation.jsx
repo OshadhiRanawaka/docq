@@ -1,82 +1,41 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
+import { supabase } from "../services/supabaseClient";
 import "../styles/ChatConversation.css";
 
-// ── Mock data — replace with real API calls when backend is ready ──
-const MOCK_CHATS = {
-  1: {
-    id: 1,
-    title: "Untitled chat",
-    documentName: "2024_25 Jan Intale_Final Exam.pdf",
-    messages: [
-      {
-        id: 1,
-        role: "user",
-        content: "What is this document about",
-      },
-      {
-        id: 2,
-        role: "assistant",
-        content: `The document is a past exam paper for the **CMs1o6 Computational Mathematics** module (May 2025). It consists of:
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-- **page 1** – Cover page and exam instructions (duration, weighting, allowed stationery, etc.).
-- **pages 2–4** – Four exam questions (total 25 marks each) covering topics such as:
-  - Rational numbers, set theory, and logical propositions.
-  - Relations, functions, and combinatorial counting (arrangements, selections).
-  - Limits, integration, and area calculations.
-  - Matrix determinant, inverse, solving linear systems, and vector angle computation.
-- **page 5** – Formula sheet provided for the exam.
-- **page 6** – Additional notes on integration and the matrix inverse formula.
-
-Overall, the paper tests a range of computational-mathematics concepts that students in the BSc (Hons) Artificial Intelligence and Data Science programme are expected to master.`,
-      },
-    ],
-  },
-};
-
-// Simple markdown-like renderer for bold text and bullet lists
+// ── Simple markdown renderer for bold and bullet lists ──
 function renderContent(text) {
   const lines = text.split("\n");
   const elements = [];
-  let keyCounter = 0;
+  let key = 0;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
+  for (const line of lines) {
     if (line.trim() === "") {
-      elements.push(<br key={keyCounter++} />);
+      elements.push(<br key={key++} />);
       continue;
     }
-
-    // Bullet point lines
     if (line.trim().startsWith("- ")) {
-      const content = line.trim().slice(2);
       elements.push(
-        <li key={keyCounter++}>{parseBold(content)}</li>
+        <li key={key++}>{parseBold(line.trim().slice(2))}</li>
       );
       continue;
     }
-
-    // Sub-bullet (starts with spaces then -)
     if (line.match(/^\s{2,}- /)) {
-      const content = line.trim().slice(2);
       elements.push(
-        <li key={keyCounter++} className="sub-bullet">{parseBold(content)}</li>
+        <li key={key++} className="sub-bullet">
+          {parseBold(line.trim().slice(2))}
+        </li>
       );
       continue;
     }
-
-    // Regular paragraph
-    elements.push(
-      <p key={keyCounter++}>{parseBold(line)}</p>
-    );
+    elements.push(<p key={key++}>{parseBold(line)}</p>);
   }
-
   return elements;
 }
 
-// Parse **bold** text inline
 function parseBold(text) {
   const parts = text.split(/\*\*(.*?)\*\*/g);
   return parts.map((part, i) =>
@@ -85,25 +44,65 @@ function parseBold(text) {
 }
 
 function ChatConversation() {
-  const { chatId } = useParams();
-  const navigate = useNavigate();
+  const { chatId }  = useParams();
+  const navigate    = useNavigate();
 
-  // Load mock chat — replace with API call later
-  const chat = MOCK_CHATS[Number(chatId)] || MOCK_CHATS[1];
-
-  const [messages, setMessages] = useState(chat.messages);
+  const [messages,  setMessages]  = useState([]);
+  const [chatInfo,  setChatInfo]  = useState(null);
   const [inputValue, setInputValue] = useState("");
-  const [isSending, setIsSending] = useState(false);
+  const [loading,   setLoading]   = useState(true);
+  const [sending,   setSending]   = useState(false);
+  const [error,     setError]     = useState("");
 
   const messagesEndRef = useRef(null);
-  const textareaRef = useRef(null);
+  const textareaRef    = useRef(null);
 
-  // Scroll to bottom whenever messages change
+  const fetchMessages = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const response = await fetch(
+        `${API_URL}/chats/${chatId}/messages`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (!response.ok) throw new Error("Failed to load chat");
+
+      const data = await response.json();
+      setChatInfo(data.chat);
+      setMessages(data.messages || []);
+    } catch {
+      setError("Could not load this chat. Is the backend running?");
+    } finally {
+      setLoading(false);
+    }
+  }, [chatId]);
+
+  // ── Load messages on mount ───────────────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMessages = async () => {
+      if (cancelled) return;
+      await fetchMessages();
+    };
+
+    void loadMessages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchMessages]);
+
+  // ── Scroll to bottom on new message ─────────────
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Auto-resize textarea as user types
+  // ── Auto-resize textarea ─────────────────────────
   const handleInputChange = (e) => {
     setInputValue(e.target.value);
     const ta = textareaRef.current;
@@ -113,38 +112,62 @@ function ChatConversation() {
     }
   };
 
-  const handleSend = () => {
+  // ── Send message ─────────────────────────────────
+  const handleSend = async () => {
     const text = inputValue.trim();
-    if (!text || isSending) return;
+    if (!text || sending) return;
 
-    // Add user message immediately
-    const userMsg = {
-      id: Date.now(),
-      role: "user",
-      content: text,
+    // Optimistically add user message to UI
+    const tempUserMsg = {
+      message_id: `temp-${Date.now()}`,
+      role:       "user",
+      content:    text,
     };
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, tempUserMsg]);
     setInputValue("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
+    setSending(true);
 
-    setIsSending(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
-    // Simulate AI response — replace this timeout with real API call later:
-    // const { data } = await sendMessage(chatId, text)
-    // setMessages(prev => [...prev, data.assistant_message])
-    setTimeout(() => {
-      const aiMsg = {
-        id: Date.now() + 1,
-        role: "assistant",
-        content:
-          "This is a mock response. Connect the backend to get real AI answers based on your document.",
-      };
-      setMessages((prev) => [...prev, aiMsg]);
-      setIsSending(false);
-    }, 1200);
+      const response = await fetch(
+        `${API_URL}/chats/${chatId}/messages`,
+        {
+          method:  "POST",
+          headers: {
+            Authorization:  `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ content: text }),
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || "Failed to send message");
+      }
+
+      const data = await response.json();
+
+      // Replace temp message with real one and add AI response
+      setMessages((prev) => [
+        ...prev.filter((m) => m.message_id !== tempUserMsg.message_id),
+        data.user_message,
+        data.assistant_message,
+      ]);
+    } catch (err) {
+      // Remove the optimistic message on failure
+      setMessages((prev) =>
+        prev.filter((m) => m.message_id !== tempUserMsg.message_id)
+      );
+      alert(err.message || "Failed to send message. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
-  // Send on Enter, new line on Shift+Enter
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -152,7 +175,31 @@ function ChatConversation() {
     }
   };
 
-  const charCount = inputValue.length;
+  // ── Error state ──────────────────────────────────
+  if (!loading && error) {
+    return (
+      <div className="chat-conv-container">
+        <Sidebar activePage="chats" />
+        <main className="chat-conv-main">
+          <div className="chat-conv-topbar">
+            <button className="chat-conv-back-btn" onClick={() => navigate("/chats")}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              all chats
+            </button>
+          </div>
+          <div className="chat-conv-error">
+            <p>{error}</p>
+            <button className="chat-conv-retry-btn" onClick={fetchMessages}>
+              Try again
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="chat-conv-container">
@@ -166,45 +213,43 @@ function ChatConversation() {
             className="chat-conv-back-btn"
             onClick={() => navigate("/chats")}
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="19" y1="12" x2="5" y2="12" />
               <polyline points="12 19 5 12 12 5" />
             </svg>
             all chats
           </button>
 
-          <div className="chat-conv-doc-badge">
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#9ca3af"
-              strokeWidth="2"
-            >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
-            <span>{chat.documentName}</span>
-          </div>
+          {chatInfo?.document_filename && (
+            <div className="chat-conv-doc-badge">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              <span>{chatInfo.document_filename}</span>
+            </div>
+          )}
         </div>
 
-        {/* ── Messages area ── */}
+        {/* ── Messages ── */}
         <div className="chat-conv-messages">
-          {messages.map((msg) => (
-            <MessageBubble key={msg.id} msg={msg} />
-          ))}
+          {loading ? (
+            <div className="chat-conv-loading">
+              <div className="chat-conv-spinner" />
+              <p>Loading conversation…</p>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="chat-conv-empty">
+              <p>Ask anything about your document to get started.</p>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <MessageBubble key={msg.message_id} msg={msg} />
+            ))
+          )}
 
           {/* Typing indicator */}
-          {isSending && (
+          {sending && (
             <div className="chat-conv-typing">
               <div className="chat-conv-ai-avatar">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" strokeWidth="2">
@@ -223,8 +268,6 @@ function ChatConversation() {
 
         {/* ── Input area ── */}
         <div className="chat-conv-input-area">
-
-          {/* Model label row */}
           <div className="chat-conv-model-row">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
@@ -237,48 +280,44 @@ function ChatConversation() {
             <span className="chat-conv-model-divider">|</span>
           </div>
 
-          {/* Textarea + send */}
           <div className="chat-conv-input-wrap">
             <textarea
               ref={textareaRef}
               className="chat-conv-textarea"
-              placeholder={`Ask any question about your document '${chat.documentName}'`}
+              placeholder={
+                chatInfo?.document_filename
+                  ? `Ask any question about '${chatInfo.document_filename}'`
+                  : "Ask a question about your document…"
+              }
               value={inputValue}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               rows={1}
-              disabled={isSending}
+              disabled={sending || loading}
             />
             <button
               className="chat-conv-send-btn"
               onClick={handleSend}
-              disabled={!inputValue.trim() || isSending}
+              disabled={!inputValue.trim() || sending || loading}
               title="Send"
             >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <line x1="22" y1="2" x2="11" y2="13" />
                 <polygon points="22 2 15 22 11 13 2 9 22 2" />
               </svg>
             </button>
           </div>
 
-          <p className="chat-conv-char-count">{charCount} characters</p>
+          <p className="chat-conv-char-count">
+            {inputValue.length} characters
+          </p>
         </div>
-
       </main>
     </div>
   );
 }
 
-/* ── Single message bubble ── */
+// ── Single message bubble ────────────────────────────────────
 function MessageBubble({ msg }) {
   const isUser = msg.role === "user";
   const [copied, setCopied] = useState(false);
@@ -291,11 +330,9 @@ function MessageBubble({ msg }) {
 
   return (
     <div className={`chat-conv-msg-row ${isUser ? "user-row" : "ai-row"}`}>
-
-      {/* Avatar */}
       <div className={`chat-conv-avatar ${isUser ? "user-avatar" : "ai-avatar"}`}>
         {isUser ? (
-          <span>O</span>
+          <span>U</span>
         ) : (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#14b8a6" strokeWidth="2">
             <circle cx="12" cy="12" r="10" />
@@ -304,7 +341,6 @@ function MessageBubble({ msg }) {
         )}
       </div>
 
-      {/* Bubble */}
       <div className={`chat-conv-bubble ${isUser ? "user-bubble" : "ai-bubble"}`}>
         <div className="chat-conv-bubble-content">
           {isUser ? (
@@ -314,7 +350,6 @@ function MessageBubble({ msg }) {
           )}
         </div>
 
-        {/* Action icons — only on AI messages */}
         {!isUser && (
           <div className="chat-conv-msg-actions">
             <button onClick={handleCopy} title={copied ? "Copied!" : "Copy"}>
@@ -339,13 +374,6 @@ function MessageBubble({ msg }) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2">
                 <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
                 <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
-              </svg>
-            </button>
-            <button title="More options">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="#9ca3af">
-                <circle cx="5" cy="12" r="1.5" />
-                <circle cx="12" cy="12" r="1.5" />
-                <circle cx="19" cy="12" r="1.5" />
               </svg>
             </button>
           </div>
