@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
+from typing import Dict
 
 from routes import documents, chats, messages, users
 
@@ -24,10 +25,10 @@ app.include_router(chats.router,     prefix="/chats",     tags=["Chats"])
 app.include_router(messages.router,  prefix="/chats",     tags=["Messages"])
 app.include_router(users.router,     prefix="/users",     tags=["Users"])
 
-@app.get("/")
-def root():
+@app.get("/", response_model=None)
+def root() -> Dict[str, str]:
     return {"message": "DocQ API is running"}
 
-@app.get("/health")
-def health():
+@app.get("/health", response_model=None)
+def health() -> Dict[str, str]:
     return {"status": "ok"}

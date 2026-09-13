@@ -5,6 +5,7 @@ import DocumentsIcon from "../assets/documents-icon.svg";
 import ChatIcon from "../assets/chat-icon.svg";
 import HelpIcon from "../assets/help-icon.svg";
 import credit from "../assets/credits-icon.svg";
+import UpArrow from "../assets/upArrow.svg";
 import { useAuth } from "../context/AuthContext";
 
 function Sidebar({ activePage }) {
@@ -70,6 +71,7 @@ function Sidebar({ activePage }) {
               <span>{creditsLeft}</span>
             </div>
           </div>
+          <img src={UpArrow} alt="open" className="profile-arrow" />
         </button>
       </div>
     </aside>

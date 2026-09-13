@@ -33,7 +33,7 @@ MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
 # ── GET /documents ─────────────────────────────────────────────
-@router.get("/", response_model=None)
+@router.get("", response_model=None)
 async def get_documents(
     user: User = Depends(get_current_user),
 ) -> List[Dict[str, Any]]:
