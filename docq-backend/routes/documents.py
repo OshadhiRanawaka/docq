@@ -31,6 +31,9 @@ supabase: Any = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 BUCKET = "documents"
 MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB
 
+# AI backend base URL — runs on 8001
+AI_BACKEND_URL: str = os.getenv("AI_BACKEND_URL", "http://localhost:8001")
+
 
 # ── GET /documents ─────────────────────────────────────────────
 @router.get("", response_model=None)
@@ -128,22 +131,6 @@ async def upload_document(
             )
         document: Dict[str, Any] = data_list[0]
 
-        # ── 3. AI backend trigger (uncomment when AI team is ready) ──
-        # try:
-        #     import httpx
-        #     ai_url = os.getenv("AI_BACKEND_URL", "http://localhost:8001")
-        #     async with httpx.AsyncClient() as client:
-        #         await client.post(f"{ai_url}/process", json={
-        #             "document_id":  document_id,
-        #             "user_id":      user.id,
-        #             "storage_path": storage_path,
-        #             "filename":     original_filename,
-        #         }, timeout=10.0)
-        # except Exception:
-        #     pass
-
-        return document
-
     except Exception as e:
         # If DB write fails, clean up the uploaded file
         try:
@@ -155,6 +142,44 @@ async def upload_document(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to save document record: {str(e)}",
         )
+
+        # ── 3. Trigger AI backend to process the document ──
+    # This runs after we return the document to the frontend
+    # so the user sees the document immediately without waiting
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            ai_response = await client.post(
+                f"{AI_BACKEND_URL}/process-document",
+                json={
+                    "document_id": document_id,
+                    "storage_path": storage_path,
+                },
+            )
+
+            # If AI backend confirms ready, update status in DB
+            if ai_response.status_code == 200:
+                ai_data: Dict[str, Any] = ai_response.json()
+                new_status: str = ai_data.get("status", "processing")
+
+                supabase.table("documents").update({"status": new_status}).eq(
+                    "document_id", document_id
+                ).execute()
+
+                document["status"] = new_status
+            else:
+                # AI backend returned error — mark as failed
+                supabase.table("documents").update({"status": "failed"}).eq(
+                    "document_id", document_id
+                ).execute()
+
+                document["status"] = "failed"
+
+    except Exception:
+        # AI backend unreachable — leave status as processing
+        # The AI team can update it to ready/failed when done
+        pass
+
+    return document
 
 
 # ── DELETE /documents/{document_id} ───────────────────────────

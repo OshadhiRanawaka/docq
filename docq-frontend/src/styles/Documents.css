@@ -561,3 +561,30 @@
 .doc-status--processing { background: #fef3c7; color: #d97706; }
 .doc-status--ready      { background: #d1fae5; color: #065f46; }
 .doc-status--failed     { background: #fee2e2; color: #b91c1c; }
+
+/* Spinning indicator inside status badge */
+.status-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: statusSpin 0.7s linear infinite;
+  margin-right: 5px;
+  vertical-align: middle;
+  opacity: 0.7;
+}
+@keyframes statusSpin { to { transform: rotate(360deg); } }
+
+/* Disabled New Chat button when doc is not ready */
+.btn-new-chat--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: #9ca3af;
+  color: #9ca3af;
+}
+.btn-new-chat--disabled:hover {
+  background: none;
+}
+ 

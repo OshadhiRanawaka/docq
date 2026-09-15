@@ -6,6 +6,7 @@ from gotrue.types import User
 from typing import Any, Dict, List, Optional
 from auth import get_current_user
 import uuid
+import httpx
 import os
 
 load_dotenv()
@@ -22,6 +23,8 @@ if not SUPABASE_SERVICE_KEY:
 
 assert SUPABASE_URL is not None and SUPABASE_SERVICE_KEY is not None
 supabase: Any = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+AI_BACKEND_URL: str = os.getenv("AI_BACKEND_URL", "http://localhost:8001")
 
 
 class SendMessageRequest(BaseModel):
@@ -70,18 +73,16 @@ async def get_messages(
         )
 
         doc: Optional[Dict[str, Any]] = chat.pop("documents", None)
-        if isinstance(doc, dict):
-            chat["document_filename"] = doc.get("filename", "Unknown")
-        else:
-            chat["document_filename"] = "Unknown"
+        chat["document_filename"] = (
+            doc.get("filename", "Unknown") if isinstance(doc, dict) else "Unknown"
+        )
 
         raw_messages = getattr(msg_response, "data", None) or []
-        messages: List[Dict[str, Any]] = raw_messages if isinstance(raw_messages, list) else []
+        messages: List[Dict[str, Any]] = (
+            raw_messages if isinstance(raw_messages, list) else []
+        )
 
-        return {
-            "chat": chat,
-            "messages": messages,
-        }
+        return {"chat": chat, "messages": messages}
 
     except Exception as e:
         raise HTTPException(
@@ -98,7 +99,7 @@ async def send_message(
     user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
 
-    # Verify chat belongs to this user
+    # ── Verify chat belongs to this user and get document_id ──
     try:
         chat_response: Any = (
             supabase.table("chats")
@@ -124,7 +125,7 @@ async def send_message(
             detail="Chat not found.",
         )
 
-    # Check user has credits
+    # ── Check user has credits ──
     try:
         profile_response: Any = (
             supabase.table("profiles")
@@ -163,18 +164,7 @@ async def send_message(
             detail=str(e),
         )
 
-    # Get existing message history for context
-    history_response: Any = (
-        supabase.table("messages")
-        .select("role, content")
-        .eq("chat_id", chat_id)
-        .order("created_at", desc=False)
-        .execute()
-    )
-    history_raw = getattr(history_response, "data", None) or []
-    history: List[Dict[str, Any]] = history_raw if isinstance(history_raw, list) else []
-
-    # Save user message
+    # ── Save user message ──
     user_message: Dict[str, Any] = {
         "message_id": str(uuid.uuid4()),
         "chat_id":    chat_id,
@@ -183,22 +173,21 @@ async def send_message(
     }
     supabase.table("messages").insert(user_message).execute()
 
-    # Extract document_id safely
+    # ── Extract document_id from chat ──
     documents_data = chat.get("documents")
-    if isinstance(documents_data, dict):
-        document_id: str = str(documents_data.get("document_id", ""))
-    else:
-        document_id = ""
-
-    # Call AI backend (placeholder until AI team is ready)
-    ai_answer: str = await _get_ai_response(
-        question=body.content,
-        document_id=document_id,
-        user_id=str(user.id),
-        chat_history=history,
+    document_id: str = (
+        str(documents_data.get("document_id", ""))
+        if isinstance(documents_data, dict)
+        else ""
     )
 
-    # Save AI response
+    # ── Call AI backend ──
+    ai_answer: str = await _get_ai_answer(
+        question=body.content,
+        document_id=document_id,
+    )
+
+    # ── Save AI response ──
     ai_message: Dict[str, Any] = {
         "message_id": str(uuid.uuid4()),
         "chat_id":    chat_id,
@@ -207,7 +196,7 @@ async def send_message(
     }
     supabase.table("messages").insert(ai_message).execute()
 
-    # Deduct 1 credit
+    # ── Deduct 1 credit ──
     supabase.table("profiles").update(
         {"credits_remaining": credits_remaining - 1}
     ).eq("id", user.id).execute()
@@ -218,40 +207,52 @@ async def send_message(
     }
 
 
-async def _get_ai_response(
+async def _get_ai_answer(
     question: str,
     document_id: str,
-    user_id: str,
-    chat_history: List[Dict[str, Any]],
 ) -> str:
     """
-    Calls the AI backend RAG pipeline.
-    Returns a placeholder response until the AI backend is ready.
+    Calls the AI backend endpoint:
+    POST /document-{document_id}/answer
+    { "question": "..." }
+
+    Returns the answer string, or a placeholder if the AI
+    backend is unreachable.
     """
-    ai_url: str = os.getenv("AI_BACKEND_URL", "http://localhost:8001")
+    if not document_id:
+        return (
+            "Could not find the document linked to this chat. "
+            "Please try creating a new chat from the Documents page."
+        )
 
     try:
-        import httpx
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                f"{ai_url}/query",
-                json={
-                    "question":     question,
-                    "document_id":  document_id,
-                    "user_id":      user_id,
-                    "chat_history": chat_history,
-                },
+                f"{AI_BACKEND_URL}/document-{document_id}/answer",
+                json={"question": question},
             )
+
             if response.status_code == 200:
                 result: Any = response.json()
                 answer: str = result.get("answer", "No answer returned.")
                 return answer
 
-    except Exception:
-        pass
+            # AI backend returned an error status
+            return (
+                f"The AI service returned an error (status {response.status_code}). "
+                "Please try again."
+            )
 
-    return (
-        "The AI backend is still under development. "
-        "Your question has been saved and will be answered "
-        "once the AI service is connected."
-    )
+    except httpx.TimeoutException:
+        return (
+            "The AI service took too long to respond. "
+            "Please try again in a moment."
+        )
+
+    except Exception:
+        # AI backend is down — return placeholder
+        return (
+            "The AI backend is not reachable right now. "
+            "Your question has been saved. "
+            "Please try again when the service is back online."
+        )
